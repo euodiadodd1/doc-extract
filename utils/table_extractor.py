@@ -1,0 +1,86 @@
+from fastapi import FastAPI, File, UploadFile
+import base64
+import dspy
+import io
+from config import OPENAI_API_KEY
+import pymupdf 
+from PIL import Image
+
+app = FastAPI()
+
+
+# Expose as API endpoint
+@app.post("/pdf-upload")
+async def pdf_upload_endpoint(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith('.pdf'):
+        return {"error": "File must be a PDF"}
+
+    contents = await file.read()
+    csv = extract_tables_from_pdf(contents)
+
+    return {"csv": csv}
+
+
+class TableExtractionSignature(dspy.Signature):
+    """Signature for extracting tables from PDF files"""
+    pdf_file: dspy.Image = dspy.InputField(description="The base64 encoded PDF file")
+    extracted_csv: str = dspy.OutputField(description="The extracted CSV of table data from the PDF")
+
+
+class PDFTableExtractor(dspy.Module):
+    """DSPy agent that extracts tables from PDF files and returns them as CSV"""
+    
+    def __init__(self):
+        super().__init__()
+        self.table_extractor = dspy.LM(model="openai/gpt-4.1-mini", api_key=OPENAI_API_KEY)
+        dspy.configure(lm=self.table_extractor)
+        
+    def forward(self, pdf_file):
+        """
+        Extract tables from a PDF file and return as CSV
+        
+        Args:
+            pdf_file: The PDF file to extract tables from
+        
+        Returns:
+            str: CSV representation of the extracted tables
+        """
+        # Read the pdf file and convert to PIL image
+        try:
+            # Handle both file-like objects and bytes
+            if isinstance(pdf_file, bytes):
+                doc = pymupdf.open("pdf", pdf_file)
+            else:
+                doc = pymupdf.open(pdf_file)
+                
+            pages = [doc.load_page(i) for i in range(len(doc))]
+            images = [Image.open(io.BytesIO(page.get_pixmap().tobytes("png"))) for page in pages]
+            image = dspy.Image.from_PIL(images[0])
+            
+            # Extract tables using the signature
+            extraction = dspy.Predict(TableExtractionSignature)
+            return extraction(pdf_file=image).extracted_csv
+        except Exception as e:
+            print(f"Error processing PDF: {e}")
+            return f"Error extracting tables: {str(e)}"
+
+
+# Usage example
+def extract_tables_from_pdf(pdf_file):
+    """
+    Helper function to extract tables from a PDF file
+    
+    Args:
+        pdf_file: File-like object or bytes of PDF
+    
+    Returns:
+        str: CSV representation of tables in the PDF
+    """
+    extractor = PDFTableExtractor()
+    csv = extractor(pdf_file).extracted_csv
+    
+    # Write csv to file
+    with open("table.csv", "w") as f:
+        f.write(csv)
+    
+    return csv
