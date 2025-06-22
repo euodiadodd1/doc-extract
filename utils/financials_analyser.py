@@ -35,7 +35,10 @@ class FinancialAnalyzer(dspy.Module):
         dspy.configure(lm=lm)
     
     def forward(self, csv_data):
-        response = self.agent(question="Analyses the financial data in the csv and provide a recommendation for investment.", csv_data=csv_data)
+        response = self.agent(
+            question="Analyses the financial data in the csv and provide a recommendation for investment.",
+            csv_data=csv_data
+            )
 
         return response["analysis"]
 
@@ -58,7 +61,7 @@ async def analyze_financials(file: UploadFile = File(...)):
  
     try:
         # Save CSV as actual file in MongoDB using GridFS with reference
-        result = save_csv_file_to_mongodb(csv, file.filename)
+        result = save_csv_file_to_mongodb(csv, file.filename, analysis)
         
         return {
             "csv": csv,
@@ -66,7 +69,7 @@ async def analyze_financials(file: UploadFile = File(...)):
             "mongodb_file_id": result["file_id"],
             "mongodb_document_id": result["document_id"],
             "filename": file.filename,
-            "message": "CSV file extracted and saved to MongoDB GridFS with reference"
+            "message": "CSV file extracted and saved to MongoDB GridFS with reference and analysis"
         }
     except Exception as e:
         return {
