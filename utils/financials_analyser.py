@@ -54,7 +54,7 @@ async def analyze_financials(file: UploadFile = File(...)):
         return {"error": "File must be a PDF"}
 
     contents = await file.read()
-    csv, analysis = extract_and_analyze_financials(contents, file.filename)
+    csv, analysis = extract_and_analyze_financials(contents)
  
     try:
         # Save CSV as actual file in MongoDB using GridFS with reference
@@ -76,4 +76,4 @@ async def analyze_financials(file: UploadFile = File(...)):
             "filename": file.filename
         }
     
-extract_and_analyze_financials("FY25_Q2_Consolidated_Financial_Statements.pdf")
+# extract_and_analyze_financials("FY25_Q2_Consolidated_Financial_Statements.pdf")
