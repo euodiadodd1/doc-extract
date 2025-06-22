@@ -1,24 +1,41 @@
 from fastapi import FastAPI, File, UploadFile
-import base64
 import dspy
 import io
-from config import OPENAI_API_KEY
+# from config import OPENAI_API_KEY
 import pymupdf 
 from PIL import Image
+from utils.mongo import connect_to_database, save_csv_file_to_mongodb
 
 app = FastAPI()
-
 
 # Expose as API endpoint
 @app.post("/pdf-upload")
 async def pdf_upload_endpoint(file: UploadFile = File(...)):
+    connect_to_database()
+
     if not file.filename.lower().endswith('.pdf'):
         return {"error": "File must be a PDF"}
 
     contents = await file.read()
     csv = extract_tables_from_pdf(contents)
 
-    return {"csv": csv}
+    try:
+        # Save CSV as actual file in MongoDB using GridFS with reference
+        result = save_csv_file_to_mongodb(csv, file.filename)
+        
+        return {
+            "csv": csv,
+            "mongodb_file_id": result["file_id"],
+            "mongodb_document_id": result["document_id"],
+            "filename": file.filename,
+            "message": "CSV file extracted and saved to MongoDB GridFS with reference"
+        }
+    except Exception as e:
+        return {
+            "csv": csv,
+            "error": f"Failed to save CSV file to MongoDB: {str(e)}",
+            "filename": file.filename
+        }
 
 
 class TableExtractionSignature(dspy.Signature):
@@ -32,7 +49,11 @@ class PDFTableExtractor(dspy.Module):
     
     def __init__(self):
         super().__init__()
-        self.table_extractor = dspy.LM(model="openai/gpt-4.1-mini", api_key=OPENAI_API_KEY)
+        self.table_extractor = dspy.LM(
+            model="openai/gpt-4.1-mini", 
+            api_key=""
+            )
+        
         dspy.configure(lm=self.table_extractor)
         
     def forward(self, pdf_file):
@@ -77,7 +98,8 @@ def extract_tables_from_pdf(pdf_file):
         str: CSV representation of tables in the PDF
     """
     extractor = PDFTableExtractor()
-    csv = extractor(pdf_file).extracted_csv
+    # Fix: The forward method returns a string directly, not an object
+    csv = extractor.forward(pdf_file)
     
     # Write csv to file
     with open("table.csv", "w") as f:
