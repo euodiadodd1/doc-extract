@@ -43,7 +43,7 @@ class MongoDBClient:
             raise error
 
 
-    def save_csv_with_reference(self, csv_content: str, filename: str, analysis: Optional[str] = None, collection_name: str = "csv_files") -> Dict[str, str]:
+    def save_csv_with_reference(self, csv_content: str, filename: str, analysis: Optional[str] = None, financial_model: Optional[str] = None, collection_name: str = "csv_files") -> Dict[str, str]:
         """
         Save CSV content as file in GridFS AND create a reference document in a collection
         
@@ -51,6 +51,7 @@ class MongoDBClient:
             csv_content: The CSV content as a string
             filename: Name of the original file
             analysis: Optional financial analysis to include in the reference document
+            financial_model: Optional financial model to include in the reference document
             collection_name: Name of the collection for references (defaults to "csv_files")
             
         Returns:
@@ -98,6 +99,11 @@ class MongoDBClient:
             reference_document["financial_analysis"] = analysis
             reference_document["analysis_date"] = datetime.utcnow()
         
+        # Add financial model if provided
+        if financial_model:
+            reference_document["financial_model"] = financial_model
+            reference_document["model_date"] = datetime.utcnow()
+        
         # Insert reference into collection
         collection = self.db[collection_name]
         doc_result = collection.insert_one(reference_document)
@@ -125,7 +131,7 @@ def close_database_connection():
     mongo_client.close_database_connection()
 
 
-def save_csv_file_to_mongodb(csv_content: str, filename: str, analysis: Optional[str] = None) -> Dict[str, str]:
+def save_csv_file_to_mongodb(csv_content: str, filename: str, analysis: Optional[str] = None, financial_model: Optional[str] = None) -> Dict[str, str]:
     """
     Helper function to save CSV as file to MongoDB GridFS with reference document
     
@@ -133,10 +139,11 @@ def save_csv_file_to_mongodb(csv_content: str, filename: str, analysis: Optional
         csv_content: The CSV content as a string
         filename: Name of the original file
         analysis: Optional financial analysis to include in the reference document
+        financial_model: Optional financial model to include in the reference document
         
     Returns:
         Dict with file_id and document_id
     """
-    return mongo_client.save_csv_with_reference(csv_content, filename, analysis)
+    return mongo_client.save_csv_with_reference(csv_content, filename, analysis, financial_model)
 
 

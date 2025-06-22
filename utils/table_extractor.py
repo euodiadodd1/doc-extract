@@ -8,35 +8,6 @@ from utils.mongo import connect_to_database, save_csv_file_to_mongodb
 
 app = FastAPI()
 
-# Expose as API endpoint
-@app.post("/pdf-upload")
-async def pdf_upload_endpoint(file: UploadFile = File(...)):
-    connect_to_database()
-
-    if not file.filename.lower().endswith('.pdf'):
-        return {"error": "File must be a PDF"}
-
-    contents = await file.read()
-    csv = extract_tables_from_pdf(contents)
-
-    try:
-        # Save CSV as actual file in MongoDB using GridFS with reference
-        result = save_csv_file_to_mongodb(csv, file.filename)
-        
-        return {
-            "csv": csv,
-            "mongodb_file_id": result["file_id"],
-            "mongodb_document_id": result["document_id"],
-            "filename": file.filename,
-            "message": "CSV file extracted and saved to MongoDB GridFS with reference"
-        }
-    except Exception as e:
-        return {
-            "csv": csv,
-            "error": f"Failed to save CSV file to MongoDB: {str(e)}",
-            "filename": file.filename
-        }
-
 
 class TableExtractionSignature(dspy.Signature):
     """Signature for extracting tables from PDF files"""
