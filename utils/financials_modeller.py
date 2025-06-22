@@ -16,7 +16,7 @@ class FinancialModellingSignature(dspy.Signature):
     """Signature for analyzing financial data"""
     example_model: str = dspy.InputField(description="The example financial model in csv format")
     asset_csv: str = dspy.InputField(description="The CSV of financial data for the asset")
-    model: str = dspy.OutputField(description="The financial forecast model with the same structure as the example model. The forecast is for the next 5 years. Return the model in csv format")
+    model: str = dspy.OutputField(description="The financial forecast model with the same structure as the example model. The forecast is for the next 5 years. Return the model in MD format")
     
 class FinancialModeller(dspy.Module):
     """DSPy agent that extracts tables from financial PDFs and analyzes them"""
@@ -33,7 +33,11 @@ class FinancialModeller(dspy.Module):
     
     def forward(self, csv_data):
         # read the example model from the csv file as a string
-        example_model = pd.read_csv("example_model.csv").to_csv(index=False)
+        try:
+            example_model = pd.read_csv("example_model.csv").to_csv(index=False)
+        except FileNotFoundError:
+            # If example_model.csv doesn't exist, provide a basic template
+            example_model = "Year,Revenue,Expenses,Net Income,Cash Flow\n2025,1000000,800000,200000,250000\n2026,1100000,850000,250000,300000\n2027,1200000,900000,300000,350000\n2028,1300000,950000,350000,400000\n2029,1400000,1000000,400000,450000"
      
         modelling = dspy.Predict(FinancialModellingSignature)
         model = modelling(asset_csv=csv_data, example_model=example_model)
